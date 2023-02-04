@@ -4,11 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node run-puppeteer.js"
+    "start": "node index.js",
+    "test": "node test.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "node-notifier": "^10.0.1",
     "puppeteer": "^19.6.3",
     "winston": "^3.8.2"
   }
