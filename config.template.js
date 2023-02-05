@@ -5,5 +5,5 @@ module.exports = {
     signOutUrl: 'https://example.com/sign_out',
     getCityUrl: 'https://example.com/city/days/$city$[params]',
     logFileName: 'logs/log.log',
-    earlierThan: '2024-02-28'
+    beforeDate: '2024-02-28'
 };
