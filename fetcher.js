@@ -7,7 +7,7 @@ const STANDARD_WAIT = 30 * 1000; // Seconds
 
 async function fetchAppointments() {
     logger.info('Launch the browser');
-    const browser = await puppeteer.launch({headless: false});
+    const browser = await puppeteer.launch();
     const page = await browser.newPage();
     await page.setViewport({width: 1080, height: 1024});
     page.setDefaultTimeout(STANDARD_WAIT);
@@ -15,8 +15,6 @@ async function fetchAppointments() {
     try {
         logger.info('Go to the sign-in page, type into the login form and submit');
         await page.goto(config.signInUrl);
-        // TODO: remove commented out code
-        // await page.goto('https://github.com/puppeteer/puppeteer/blob/main/docs/index.md');
         await page.waitForSelector('#user_email');
         await page.type('#user_email', config.email);
         await page.type('#user_password', config.password);
@@ -26,8 +24,7 @@ async function fetchAppointments() {
             page.click('input[type="submit"]')
         ]);
         await page.waitForSelector('span[title="Applicant Actions"]');
-
-        // await waitSeconds(5000);
+        await waitSeconds(1);
 
         logger.info('Make the appointment requests');
         const cityData = await page.evaluate(async (cityUrl, CITY_IDS) => {
@@ -36,7 +33,7 @@ async function fetchAppointments() {
                 let data = null, error = null;
                 try {
                     data = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT) })
-                        .then((response) => response?.json ? response.json() : {});
+                        .then((response) => response?.json ? response.json() : []);
                 } catch (err) {
                     if (err.name === 'TimeoutError') {
                         error = {timeout: true};
@@ -52,25 +49,29 @@ async function fetchAppointments() {
             const cityData = {};
             for (const cityName of Object.keys(CITY_IDS)) {
                 const filledCityUrl = cityUrl.replace('$city$', CITY_IDS[cityName]);
-                const response = makeTimedRequest(filledCityUrl);
+                const response = await makeTimedRequest(filledCityUrl);
                 cityData[cityName] = response;
-                if (error) {
+                if (response.error) {
                     break;
                 }
-                await waitSeconds(5); // For safety so that the server doesn't think it's a bot
+                // For safety so that the server doesn't think it's a bot
+                await new Promise(resolve => setTimeout(resolve, 3 * 1000));
             }
             return cityData;
         }, config.getCityUrl, CITY_IDS);
 
         const error = Object.values(cityData).find(({error}) => !!error);
         if (error) {
+            logger.error('There was an error making appointment requests.');
+            const errorText = (error.timeout ? 'Timeout' : 'Network') + ', ' + error.info;
+            logger.error(errorText);
             return {success: false, ...error, data: cityData};
         } else {
             return {success: true, data: cityData};
         }
     } catch (err) {
         if (err instanceof puppeteer.TimeoutError) {
-            logger.error('Request timeout out');
+            logger.error('Puppeteer request timeout out');
             return {success: false, timeout: true};
         }
         logger.error(err);
@@ -78,7 +79,7 @@ async function fetchAppointments() {
         return {success: false, network: true};
     } finally {
         logger.info('Log out and close the browser');
-        // await page.goto(config.signOutUrl);
+        await page.goto(config.signOutUrl);
         await browser.close();
     }
 }
